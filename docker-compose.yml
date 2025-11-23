@@ -1,0 +1,76 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: maintenance_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: Admin@1234
+      MYSQL_DATABASE: maintenance_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: Admin@1234
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
+    command: --default-authentication-plugin=mysql_native_password
+    networks:
+      - maintenance_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "user", "-pAdmin@1234"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: maintenance_backend
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=mysql+pymysql://user:Admin%401234@mysql:3306/maintenance_db
+      - SECRET_KEY=your-secret-key-here-change-in-production
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - UPLOAD_DIR=./uploads
+    ports:
+      - "8001:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - backend_uploads:/app/uploads
+    networks:
+      - maintenance_network
+    command: sh -c "sleep 5 && (alembic upgrade head || echo 'Migrations failed, continuing...') && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: maintenance_frontend
+    restart: unless-stopped
+    environment:
+      - NEXT_PUBLIC_API_URL=https://janssencnna.cloud/api/v1
+      - NEXT_PUBLIC_APP_NAME=Maintenance Management
+    ports:
+      - "3001:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - maintenance_network
+    command: npm run dev -- --hostname 0.0.0.0
+
+volumes:
+  mysql_data:
+  backend_uploads:
+
+networks:
+  maintenance_network:
+    driver: bridge

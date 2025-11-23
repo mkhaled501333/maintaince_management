@@ -1,0 +1,4 @@
+# Frontend Environment Variables
+# For external access, replace YOUR_MACHINE_IP with your actual machine's IP address
+NEXT_PUBLIC_API_URL=http://YOUR_MACHINE_IP:8000/api/v1
+NEXT_PUBLIC_APP_NAME="Maintenance Management"

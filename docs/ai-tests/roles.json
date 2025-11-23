@@ -1,0 +1,8 @@
+{
+  "ADMIN": { "username": "a", "password": "a" },
+  "SUPERVISOR": { "username": "s", "password": "s" },
+  "MAINTENANCE_TECH": { "username": "m", "password": "m" },
+  "MAINTENANCE_MANAGER": { "username": "ma", "password": "m" },
+  "INVENTORY_MANAGER": { "username": "i", "password": "i" }
+}
+
