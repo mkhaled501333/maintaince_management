@@ -35,10 +35,15 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     
-    // Log error details for debugging
-    console.log('Response interceptor error:', error);
-    console.log('Error response:', error.response);
-    console.log('Error response data:', error.response?.data);
+    // Only log non-401 errors or 401 errors that can't be refreshed
+    if (error.response?.status !== 401 || originalRequest._retry) {
+      // Log error details for debugging (only for non-auth errors or failed refresh attempts)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Response interceptor error:', error);
+        console.log('Error response:', error.response);
+        console.log('Error response data:', error.response?.data);
+      }
+    }
     
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
