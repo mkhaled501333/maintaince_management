@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 # revision identifiers, used by Alembic.
@@ -19,14 +20,34 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Remove foreign key constraint first
-    op.drop_constraint('users_ibfk_1', 'users', type_='foreignkey')
-    # Remove departmentId column
-    op.drop_column('users', 'departmentId')
+    connection = op.get_bind()
+    inspector = inspect(connection)
+    
+    # Check if constraint exists before dropping
+    foreign_keys = inspector.get_foreign_keys('users')
+    constraint_exists = any(fk['name'] == 'users_ibfk_1' for fk in foreign_keys)
+    
+    if constraint_exists:
+        op.drop_constraint('users_ibfk_1', 'users', type_='foreignkey')
+    
+    # Check if column exists before dropping
+    columns = [col['name'] for col in inspector.get_columns('users')]
+    if 'departmentId' in columns:
+        op.drop_column('users', 'departmentId')
 
 
 def downgrade() -> None:
-    # Add departmentId column back
-    op.add_column('users', sa.Column('departmentId', sa.Integer(), nullable=True))
-    # Add foreign key constraint back
-    op.create_foreign_key('users_ibfk_1', 'users', 'departments', ['departmentId'], ['id'])
+    connection = op.get_bind()
+    inspector = inspect(connection)
+    
+    # Check if column exists before adding
+    columns = [col['name'] for col in inspector.get_columns('users')]
+    if 'departmentId' not in columns:
+        op.add_column('users', sa.Column('departmentId', sa.Integer(), nullable=True))
+    
+    # Check if constraint exists before creating
+    foreign_keys = inspector.get_foreign_keys('users')
+    constraint_exists = any(fk['name'] == 'users_ibfk_1' for fk in foreign_keys)
+    
+    if not constraint_exists:
+        op.create_foreign_key('users_ibfk_1', 'users', 'departments', ['departmentId'], ['id'])
