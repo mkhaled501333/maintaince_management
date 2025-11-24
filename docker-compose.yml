@@ -16,7 +16,6 @@ services:
     command: --default-authentication-plugin=mysql_native_password
     networks:
       - maintenance_network
-      - shared_network
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "user", "-pAdmin@1234"]
       interval: 5s
@@ -74,7 +73,4 @@ volumes:
 
 networks:
   maintenance_network:
-    driver: bridge
-  shared_network:
-    name: shared_network
     driver: bridge
