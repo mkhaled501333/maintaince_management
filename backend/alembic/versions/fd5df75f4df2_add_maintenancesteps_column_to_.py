@@ -10,6 +10,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import inspect
+from sqlalchemy.exc import OperationalError
 
 
 # revision identifiers, used by Alembic.
@@ -20,20 +21,54 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def column_exists(table_name: str, column_name: str) -> bool:
-    """Check if a column exists in a table."""
+    """Check if a column exists in a table (case-insensitive for MySQL)."""
     bind = op.get_bind()
     inspector = inspect(bind)
     try:
         columns = [col['name'] for col in inspector.get_columns(table_name)]
-        return column_name in columns
+        # Case-insensitive check for MySQL compatibility
+        return any(col.lower() == column_name.lower() for col in columns)
     except Exception:
-        return False
+        # Fallback: use direct SQL query
+        try:
+            result = bind.execute(
+                sa.text(
+                    "SELECT COUNT(*) FROM information_schema.COLUMNS "
+                    "WHERE TABLE_SCHEMA = DATABASE() "
+                    "AND TABLE_NAME = :table_name "
+                    "AND COLUMN_NAME = :column_name"
+                ),
+                {"table_name": table_name, "column_name": column_name}
+            )
+            return result.scalar() > 0
+        except Exception:
+            return False
 
 
 def upgrade() -> None:
     # Add maintenanceSteps column to maintenance_works table if it doesn't exist
+    # Use try-except as a fallback in case column_exists check fails
     if not column_exists('maintenance_works', 'maintenanceSteps'):
-        op.add_column('maintenance_works', sa.Column('maintenanceSteps', sa.JSON(), nullable=True))
+        try:
+            op.add_column('maintenance_works', sa.Column('maintenanceSteps', sa.JSON(), nullable=True))
+        except OperationalError as e:
+            # If column already exists (MySQL error 1060), ignore the error (idempotent operation)
+            error_str = str(e)
+            if '1060' in error_str or 'Duplicate column' in error_str:
+                # Column already exists, skip
+                pass
+            else:
+                # Re-raise other errors
+                raise
+        except Exception as e:
+            # Catch any other exceptions and check if it's a duplicate column error
+            error_str = str(e)
+            if '1060' in error_str or 'Duplicate column' in error_str:
+                # Column already exists, skip
+                pass
+            else:
+                # Re-raise other errors
+                raise
 
 
 def downgrade() -> None:
