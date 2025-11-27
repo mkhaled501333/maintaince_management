@@ -126,7 +126,7 @@ def upgrade() -> None:
         sa.Column('createdAt', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.Column('updatedAt', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
         sa.Column('partNumber', sa.String(length=100), nullable=False),
-        sa.Column('name', sa.String(length=200), nullable=False),
+        sa.Column('partName', sa.String(length=200), nullable=False),
         sa.Column('description', sa.Text(), nullable=True),
         sa.Column('category', sa.String(length=100), nullable=True),
         sa.Column('currentStock', sa.Integer(), nullable=False),
