@@ -7,7 +7,7 @@ class SparePart(BaseModel):
     
     # Part information
     partNumber = Column(String(100), nullable=False, unique=True)
-    partName = Column('name', String(200), nullable=False)  # Map to 'name' column in database
+    partName = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
     categoryId = Column(Integer, ForeignKey("sparepart_categories.id", ondelete="SET NULL"), nullable=True)
     
