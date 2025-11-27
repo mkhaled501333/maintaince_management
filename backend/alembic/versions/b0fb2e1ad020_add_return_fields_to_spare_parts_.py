@@ -33,11 +33,11 @@ def column_exists(table_name: str, column_name: str) -> bool:
 def upgrade() -> None:
     # Add return fields to spare_parts_requests table (only if they don't exist)
     if not column_exists('spare_parts_requests', 'is_requested_return'):
-        op.add_column('spare_parts_requests', sa.Column('is_requested_return', sa.Boolean(), nullable=False, server_default=sa.false()))
+        op.add_column('spare_parts_requests', sa.Column('is_requested_return', sa.Boolean(), nullable=False, server_default=sa.text('0')))
     if not column_exists('spare_parts_requests', 'return_date'):
         op.add_column('spare_parts_requests', sa.Column('return_date', sa.DateTime(timezone=True), nullable=True))
     if not column_exists('spare_parts_requests', 'is_returned'):
-        op.add_column('spare_parts_requests', sa.Column('is_returned', sa.Boolean(), nullable=False, server_default=sa.false()))
+        op.add_column('spare_parts_requests', sa.Column('is_returned', sa.Boolean(), nullable=False, server_default=sa.text('0')))
 
 
 def downgrade() -> None:
