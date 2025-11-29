@@ -53,6 +53,7 @@
   max-height: 600px;
   overflow-y: auto;
   min-width: 100%;
+  position: relative;
 }
 
 .excelTable {
@@ -86,16 +87,19 @@
   padding: 8px;
   border: 1px solid #dee2e6;
   background: white;
+  color: #212529;
   vertical-align: middle;
   min-width: 120px;
 }
 
 .excelTable tr:nth-child(even) td {
   background: #f8f9fa;
+  color: #212529;
 }
 
 .excelTable tbody tr:hover td {
   background: #e3f2fd;
+  color: #212529;
 }
 
 /* Selected Row Styles */
@@ -107,8 +111,13 @@
   background-color: #bbdefb !important;
 }
 
+.excelTable tbody tr.selected:hover td {
+  color: #212529 !important;
+}
+
 .excelTable tbody tr.selected td {
   background-color: #e3f2fd !important;
+  color: #212529 !important;
 }
 
 /* Status Cell Styles */
@@ -538,6 +547,38 @@
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* Small Spinner for Search */
+.smallSpinner {
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #217346;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  animation: spin 0.8s linear infinite;
+}
+
+.searchSpinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+}
+
+/* Fetching Indicator - subtle indicator in corner */
+.fetchingIndicator {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  padding: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Checkbox Styles */

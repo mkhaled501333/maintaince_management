@@ -494,26 +494,33 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
       <div className={styles.excelContainer}>
         {/* Toolbar */}
         <div className={styles.excelToolbar}>
-          <div className="relative" style={{ marginLeft: 'auto' }}>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="ابحث ب اسم القطعه"
-              className="px-3 py-1.5 pr-8 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              style={{ width: '180px' }}
-            />
-            {searchTerm && (
-              <button
-                onClick={() => {
-                  setSearchTerm('');
-                  handleSearchChange('');
-                }}
-                className="absolute right-1 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
-                title="مسح"
-              >
-                ✕
-              </button>
+          <div className="relative" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="relative" style={{ display: 'flex', alignItems: 'center' }}>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="ابحث ب اسم القطعه"
+                className="px-3 py-1.5 pr-8 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                style={{ width: '180px' }}
+              />
+              {searchTerm && !isFetching && (
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    handleSearchChange('');
+                  }}
+                  className="absolute right-1 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                  title="مسح"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            {isFetching && data && (
+              <div className={styles.searchSpinner} title="جاري البحث...">
+                <div className={styles.smallSpinner}></div>
+              </div>
             )}
           </div>
           {selectedRows.size > 0 && (
@@ -549,12 +556,19 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
 
         {/* Table Wrapper */}
         <div className={styles.excelTableWrapper} ref={tableWrapperRef}>
-          {isFetching && (
+          {/* Only show full overlay on initial load, not during search */}
+          {isLoading && !data && (
             <div className={styles.loadingOverlay}>
               <div className={styles.loadingSpinner}></div>
             </div>
           )}
-          <table className={`${styles.excelTable} ${isFetching ? styles.loading : ''}`}>
+          {/* Show subtle loading indicator during search/fetch */}
+          {isFetching && data && (
+            <div className={styles.fetchingIndicator}>
+              <div className={styles.smallSpinner}></div>
+            </div>
+          )}
+          <table className={styles.excelTable}>
             <thead className="bg-gradient-to-r from-slate-800 to-slate-700">
               <tr>
                 <th className={styles.checkboxCell}>
