@@ -90,6 +90,7 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
   const queryClient = useQueryClient();
   const router = useRouter();
   const tableWrapperRef = useRef<HTMLDivElement>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch spare parts with filters
   const { data, isLoading, error, refetch } = useQuery({
@@ -129,12 +130,26 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
 
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
-    // Debounce search
-    const timeoutId = setTimeout(() => {
-      setFilters({ ...filters, search: value, page: 1 });
+    
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    // Debounce search - only update filters after user stops typing for 500ms
+    searchTimeoutRef.current = setTimeout(() => {
+      setFilters((prevFilters) => ({ ...prevFilters, search: value || undefined, page: 1 }));
     }, 500);
-    return () => clearTimeout(timeoutId);
   };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
 
 
   const handleApplyCategoryFilter = () => {
@@ -379,10 +394,28 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
     };
   }, [openFilterDropdown]);
 
+  // Always show header with button, even during loading/error states
+  const renderHeader = () => (
+    <div className="flex justify-between items-center">
+      <h2 className="text-2xl font-bold text-gray-900">مخزون قطع الغيار</h2>
+      {onCreate && (
+        <button
+          onClick={onCreate}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          إضافة قطعة غيار
+        </button>
+      )}
+    </div>
+  );
+
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="space-y-6">
+        {renderHeader()}
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
       </div>
     );
   }
@@ -392,21 +425,24 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
     const errorDetails = (error as any)?.response?.data?.detail || errorMessage;
     
     return (
-      <div className="bg-red-50 border border-red-200 rounded-md p-4">
-        <div className="flex">
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-red-800">
-              حدث خطأ أثناء تحميل قطع الغيار
-            </h3>
-            <div className="mt-2 text-sm text-red-700">
-              <p>{errorDetails}</p>
-              <p className="mt-2">يرجى تحديث الصفحة أو التواصل مع الدعم إذا استمرت المشكلة.</p>
-              {process.env.NODE_ENV === 'development' && (
-                <details className="mt-2">
-                  <summary className="cursor-pointer text-xs">معلومات التصحيح</summary>
-                  <pre className="mt-2 text-xs overflow-auto">{JSON.stringify(error, null, 2)}</pre>
-                </details>
-              )}
+      <div className="space-y-6">
+        {renderHeader()}
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <div className="flex">
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">
+                حدث خطأ أثناء تحميل قطع الغيار
+              </h3>
+              <div className="mt-2 text-sm text-red-700">
+                <p>{errorDetails}</p>
+                <p className="mt-2">يرجى تحديث الصفحة أو التواصل مع الدعم إذا استمرت المشكلة.</p>
+                {process.env.NODE_ENV === 'development' && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-xs">معلومات التصحيح</summary>
+                    <pre className="mt-2 text-xs overflow-auto">{JSON.stringify(error, null, 2)}</pre>
+                  </details>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -451,15 +487,7 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
   return (
     <div className="space-y-6">
       {/* Header with Create Button */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">مخزون قطع الغيار</h2>
-        <button
-          onClick={onCreate}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          إضافة قطعة غيار
-        </button>
-      </div>
+      {renderHeader()}
 
       {/* Table Container */}
       <div className={styles.excelContainer}>
