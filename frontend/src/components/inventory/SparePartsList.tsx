@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { sparePartsApi } from '../../lib/api/spare-parts';
 import { inventoryTransactionsApi } from '../../lib/api/inventory-transactions';
@@ -65,6 +65,99 @@ function getStockStatusArabic(status: StockStatus): string {
   }
 }
 
+// Memoized table row component to prevent unnecessary re-renders
+const SparePartRow = memo(({ 
+  part, 
+  isSelected, 
+  onToggleSelection, 
+  onEdit, 
+  onDelete, 
+  onViewHistory, 
+  onSupply,
+  deleteMutationPending,
+  supplyMutationPending,
+  selectedPartForSupply
+}: {
+  part: SparePart;
+  isSelected: boolean;
+  onToggleSelection: (id: number, checked: boolean) => void;
+  onEdit: (part: SparePart) => void;
+  onDelete: (part: SparePart) => void;
+  onViewHistory: (part: SparePart) => void;
+  onSupply: (part: SparePart) => void;
+  deleteMutationPending: boolean;
+  supplyMutationPending: boolean;
+  selectedPartForSupply: SparePart | null;
+}) => {
+  const stockStatus = calculateStockStatus(part.currentStock, part.minimumStock, part.maximumStock);
+  
+  return (
+    <tr 
+      key={part.id}
+      className={isSelected ? styles.selected : ''}
+    >
+      <td className={styles.checkboxCell}>
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={(e) => onToggleSelection(part.id, e.target.checked)}
+        />
+      </td>
+      <td>{part.partNumber}</td>
+      <td>{part.partName}</td>
+      <td>{part.category?.name || <span style={{ color: '#adb5bd' }}>-</span>}</td>
+      <td>{part.category?.code || <span style={{ color: '#adb5bd' }}>-</span>}</td>
+      <td>{part.location || <span style={{ color: '#adb5bd' }}>-</span>}</td>
+      <td style={{ fontWeight: 'bold', fontSize: '16px' }}>{part.currentStock}</td>
+      <td>
+        <span style={{ fontWeight: '500' }}>{part.minimumStock}</span> /{' '}
+        <span style={{ color: '#6c757d' }}>{part.maximumStock || '-'}</span>
+      </td>
+      <td>
+        <span className={`${styles.statusCell} ${getStockStatusClass(stockStatus)}`}>
+          {getStockStatusArabic(stockStatus)}
+        </span>
+      </td>
+      <td style={{ textAlign: 'center', fontWeight: 'bold', width: '90px', minWidth: '90px' }}>
+        {part.transactionCount ?? 0}
+      </td>
+      <td style={{ width: 'clamp(240px, 22vw, 320px)', minWidth: '240px', textAlign: 'center' }}>
+        <div className={styles.actionButtons}>
+          <button
+            onClick={() => onViewHistory(part)}
+            className={`${styles.actionButton} ${styles.actionButtonHistory}`}
+            title="عرض سجل الحركات"
+          >
+            الحركات
+          </button>
+          <button
+            onClick={() => onSupply(part)}
+            className={`${styles.actionButton} ${styles.actionButtonSupply}`}
+            disabled={supplyMutationPending && selectedPartForSupply?.id === part.id}
+          >
+            توريد
+          </button>
+          <button
+            onClick={() => onEdit(part)}
+            className={`${styles.actionButton} ${styles.actionButtonEdit}`}
+          >
+            تعديل
+          </button>
+          <button
+            onClick={() => onDelete(part)}
+            className={`${styles.actionButton} ${styles.actionButtonDelete}`}
+            disabled={deleteMutationPending}
+          >
+            حذف
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+});
+
+SparePartRow.displayName = 'SparePartRow';
+
 export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
   const [filters, setFilters] = useState<SparePartFilters>({
     page: 1,
@@ -97,6 +190,8 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
     queryKey: ['spare-parts', filters],
     queryFn: () => sparePartsApi.getSpareParts(filters),
     refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
+    placeholderData: keepPreviousData, // Keep previous data visible while fetching
+    staleTime: 5000, // Consider data fresh for 5 seconds
   });
 
   // Delete mutation
@@ -128,7 +223,7 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
     },
   });
 
-  const handleSearchChange = (value: string) => {
+  const handleSearchChange = useCallback((value: string) => {
     setSearchTerm(value);
     
     // Clear previous timeout
@@ -140,7 +235,7 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
     searchTimeoutRef.current = setTimeout(() => {
       setFilters((prevFilters) => ({ ...prevFilters, search: value || undefined, page: 1 }));
     }, 500);
-  };
+  }, []);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -242,7 +337,7 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
     setFilters({ ...filters, page });
   };
 
-  const handleDelete = async (part: SparePart) => {
+  const handleDelete = useCallback(async (part: SparePart) => {
     if (window.confirm(`هل أنت متأكد من حذف قطعة الغيار "${part.partNumber}"؟`)) {
       try {
         await deleteMutation.mutateAsync(part.id);
@@ -250,19 +345,19 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
         alert('فشل حذف قطعة الغيار. يرجى المحاولة مرة أخرى.');
       }
     }
-  };
+  }, [deleteMutation]);
 
-  const handleViewHistory = (part: SparePart) => {
+  const handleViewHistory = useCallback((part: SparePart) => {
     setSelectedPartForHistory(part);
     setIsHistoryPanelOpen(true);
-  };
+  }, []);
 
-  const openSupplyDialog = (part: SparePart) => {
+  const openSupplyDialog = useCallback((part: SparePart) => {
     setSelectedPartForSupply(part);
     setSupplyQuantity(1);
     setSupplyError('');
     setIsSupplyDialogOpen(true);
-  };
+  }, []);
 
   const closeSupplyDialog = () => {
     setIsSupplyDialogOpen(false);
@@ -293,28 +388,30 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
   };
 
   // Row selection handlers (defined after data is available)
-  const toggleSelectAll = (checked: boolean, parts: SparePart[]) => {
+  const toggleSelectAll = useCallback((checked: boolean, parts: SparePart[]) => {
     if (checked) {
       const allIds = new Set(parts.map(part => part.id));
       setSelectedRows(allIds);
     } else {
       setSelectedRows(new Set());
     }
-  };
+  }, []);
 
-  const toggleRowSelection = (id: number, checked: boolean) => {
-    const newSelected = new Set(selectedRows);
-    if (checked) {
-      newSelected.add(id);
-    } else {
-      newSelected.delete(id);
-    }
-    setSelectedRows(newSelected);
-  };
+  const toggleRowSelection = useCallback((id: number, checked: boolean) => {
+    setSelectedRows((prevSelected) => {
+      const newSelected = new Set(prevSelected);
+      if (checked) {
+        newSelected.add(id);
+      } else {
+        newSelected.delete(id);
+      }
+      return newSelected;
+    });
+  }, []);
 
-  const clearSelection = () => {
+  const clearSelection = useCallback(() => {
     setSelectedRows(new Set());
-  };
+  }, []);
 
   // Export to CSV
   const handleExportToCSV = () => {
@@ -451,38 +548,60 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
     );
   }
 
-  const spareParts = data?.spareParts || [];
-  const categoryOptionMap = new Map<number, SparePartCategoryOption>();
-  spareParts.forEach((part) => {
-    if (part.categoryId && part.category?.name) {
-      categoryOptionMap.set(part.categoryId, {
-        id: part.categoryId,
-        name: part.category.name,
-        code: part.category.code,
-      });
-    }
-  });
-  const categoryOptions = Array.from(categoryOptionMap.values()).sort((a, b) =>
-    a.name.localeCompare(b.name, 'ar')
+  const spareParts = useMemo(() => data?.spareParts || [], [data?.spareParts]);
+  
+  // Memoize category options to prevent recalculation on every render
+  const categoryOptions = useMemo(() => {
+    const categoryOptionMap = new Map<number, SparePartCategoryOption>();
+    spareParts.forEach((part) => {
+      if (part.categoryId && part.category?.name) {
+        categoryOptionMap.set(part.categoryId, {
+          id: part.categoryId,
+          name: part.category.name,
+          code: part.category.code,
+        });
+      }
+    });
+    return Array.from(categoryOptionMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name, 'ar')
+    );
+  }, [spareParts]);
+
+  const activeCategoryFilterCount = useMemo(() => 
+    Array.isArray(filters.categoryId)
+      ? filters.categoryId.length
+      : typeof filters.categoryId === 'number'
+      ? 1
+      : 0,
+    [filters.categoryId]
   );
-  const activeCategoryFilterCount = Array.isArray(filters.categoryId)
-    ? filters.categoryId.length
-    : typeof filters.categoryId === 'number'
-    ? 1
-    : 0;
-  const isAllSelected = spareParts.length > 0 && selectedRows.size === spareParts.length;
-  const isIndeterminate = selectedRows.size > 0 && selectedRows.size < spareParts.length;
+
+  const isAllSelected = useMemo(() => 
+    spareParts.length > 0 && selectedRows.size === spareParts.length,
+    [spareParts.length, selectedRows.size]
+  );
+
+  const isIndeterminate = useMemo(() => 
+    selectedRows.size > 0 && selectedRows.size < spareParts.length,
+    [selectedRows.size, spareParts.length]
+  );
 
   // Filter categories based on search term
-  const filteredCategories = categoryOptions.filter((cat) =>
-    cat.name.toLowerCase().includes(categorySearchTerm.toLowerCase()) ||
-    (cat.code ? cat.code.toLowerCase().includes(categorySearchTerm.toLowerCase()) : false)
+  const filteredCategories = useMemo(() => 
+    categoryOptions.filter((cat) =>
+      cat.name.toLowerCase().includes(categorySearchTerm.toLowerCase()) ||
+      (cat.code ? cat.code.toLowerCase().includes(categorySearchTerm.toLowerCase()) : false)
+    ),
+    [categoryOptions, categorySearchTerm]
   );
 
   // Filter stock status options based on search term
-  const filteredStockStatusOptions = stockStatusOptions.filter((option: { value: string; label: string }) =>
-    option.label.toLowerCase().includes(stockStatusSearchTerm.toLowerCase()) ||
-    option.value.toLowerCase().includes(stockStatusSearchTerm.toLowerCase())
+  const filteredStockStatusOptions = useMemo(() =>
+    stockStatusOptions.filter((option: { value: string; label: string }) =>
+      option.label.toLowerCase().includes(stockStatusSearchTerm.toLowerCase()) ||
+      option.value.toLowerCase().includes(stockStatusSearchTerm.toLowerCase())
+    ),
+    [stockStatusSearchTerm]
   );
 
   return (
@@ -894,75 +1013,21 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
                   </td>
                 </tr>
               ) : (
-                spareParts.map((part) => {
-                  const stockStatus = calculateStockStatus(part.currentStock, part.minimumStock, part.maximumStock);
-                  const isSelected = selectedRows.has(part.id);
-                  return (
-                    <tr 
-                      key={part.id}
-                      className={isSelected ? styles.selected : ''}
-                    >
-                      <td className={styles.checkboxCell}>
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => toggleRowSelection(part.id, e.target.checked)}
-                        />
-                      </td>
-                      <td>
-                        {part.partNumber}
-                      </td>
-                      <td>{part.partName}</td>
-                      <td>{part.category?.name || <span style={{ color: '#adb5bd' }}>-</span>}</td>
-                      <td>{part.category?.code || <span style={{ color: '#adb5bd' }}>-</span>}</td>
-                      <td>{part.location || <span style={{ color: '#adb5bd' }}>-</span>}</td>
-                      <td style={{ fontWeight: 'bold', fontSize: '16px' }}>{part.currentStock}</td>
-                      <td>
-                        <span style={{ fontWeight: '500' }}>{part.minimumStock}</span> /{' '}
-                        <span style={{ color: '#6c757d' }}>{part.maximumStock || '-'}</span>
-                      </td>
-                      <td>
-                        <span className={`${styles.statusCell} ${getStockStatusClass(stockStatus)}`}>
-                          {getStockStatusArabic(stockStatus)}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: 'center', fontWeight: 'bold', width: '90px', minWidth: '90px' }}>
-                        {part.transactionCount ?? 0}
-                      </td>
-                      <td style={{ width: 'clamp(240px, 22vw, 320px)', minWidth: '240px', textAlign: 'center' }}>
-                        <div className={styles.actionButtons}>
-                          <button
-                            onClick={() => handleViewHistory(part)}
-                            className={`${styles.actionButton} ${styles.actionButtonHistory}`}
-                            title="عرض سجل الحركات"
-                          >
-                            الحركات
-                          </button>
-                          <button
-                            onClick={() => openSupplyDialog(part)}
-                            className={`${styles.actionButton} ${styles.actionButtonSupply}`}
-                            disabled={supplyMutation.isPending && selectedPartForSupply?.id === part.id}
-                          >
-                            توريد
-                          </button>
-                          <button
-                            onClick={() => onEdit?.(part)}
-                            className={`${styles.actionButton} ${styles.actionButtonEdit}`}
-                          >
-                            تعديل
-                          </button>
-                          <button
-                            onClick={() => handleDelete(part)}
-                            className={`${styles.actionButton} ${styles.actionButtonDelete}`}
-                            disabled={deleteMutation.isPending}
-                          >
-                            حذف
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
+                spareParts.map((part) => (
+                  <SparePartRow
+                    key={part.id}
+                    part={part}
+                    isSelected={selectedRows.has(part.id)}
+                    onToggleSelection={toggleRowSelection}
+                    onEdit={onEdit || (() => {})}
+                    onDelete={handleDelete}
+                    onViewHistory={handleViewHistory}
+                    onSupply={openSupplyDialog}
+                    deleteMutationPending={deleteMutation.isPending}
+                    supplyMutationPending={supplyMutation.isPending}
+                    selectedPartForSupply={selectedPartForSupply}
+                  />
+                ))
               )}
             </tbody>
           </table>
