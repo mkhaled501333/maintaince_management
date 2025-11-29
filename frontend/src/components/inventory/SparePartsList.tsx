@@ -93,7 +93,7 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch spare parts with filters
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['spare-parts', filters],
     queryFn: () => sparePartsApi.getSpareParts(filters),
     refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
@@ -409,7 +409,8 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
     </div>
   );
 
-  if (isLoading) {
+  // Only show full loading state on initial load (when there's no data yet)
+  if (isLoading && !data) {
     return (
       <div className="space-y-6">
         {renderHeader()}
@@ -540,7 +541,7 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
           <button
             onClick={() => refetch()}
             className={styles.toolbarButton}
-            disabled={isLoading}
+            disabled={isFetching}
           >
             تحديث
           </button>
@@ -548,12 +549,12 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
 
         {/* Table Wrapper */}
         <div className={styles.excelTableWrapper} ref={tableWrapperRef}>
-          {isLoading && (
+          {isFetching && (
             <div className={styles.loadingOverlay}>
               <div className={styles.loadingSpinner}></div>
             </div>
           )}
-          <table className={`${styles.excelTable} ${isLoading ? styles.loading : ''}`}>
+          <table className={`${styles.excelTable} ${isFetching ? styles.loading : ''}`}>
             <thead className="bg-gradient-to-r from-slate-800 to-slate-700">
               <tr>
                 <th className={styles.checkboxCell}>
@@ -977,14 +978,14 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <button
                 onClick={() => handlePageChange(1)}
-                disabled={data.page === 1 || isLoading}
+                disabled={data.page === 1 || isFetching}
                 className={styles.paginationBtn}
               >
                 الأولى
               </button>
               <button
                 onClick={() => handlePageChange(data.page - 1)}
-                disabled={data.page === 1 || isLoading}
+                disabled={data.page === 1 || isFetching}
                 className={styles.paginationBtn}
               >
                 السابق
@@ -994,14 +995,14 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
               </span>
               <button
                 onClick={() => handlePageChange(data.page + 1)}
-                disabled={data.page === data.totalPages || isLoading}
+                disabled={data.page === data.totalPages || isFetching}
                 className={styles.paginationBtn}
               >
                 التالي
               </button>
               <button
                 onClick={() => handlePageChange(data.totalPages)}
-                disabled={data.page === data.totalPages || isLoading}
+                disabled={data.page === data.totalPages || isFetching}
                 className={styles.paginationBtn}
               >
                 الأخيرة
