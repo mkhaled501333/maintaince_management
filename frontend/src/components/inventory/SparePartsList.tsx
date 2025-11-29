@@ -468,13 +468,70 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
     { value: 'EXCESS', label: 'زائد' },
   ];
 
+  // Memoize all computed values BEFORE conditional returns (Rules of Hooks)
+  const spareParts = useMemo(() => data?.spareParts || [], [data?.spareParts]);
+  
+  // Memoize category options to prevent recalculation on every render
+  const categoryOptions = useMemo(() => {
+    const categoryOptionMap = new Map<number, SparePartCategoryOption>();
+    spareParts.forEach((part) => {
+      if (part.categoryId && part.category?.name) {
+        categoryOptionMap.set(part.categoryId, {
+          id: part.categoryId,
+          name: part.category.name,
+          code: part.category.code,
+        });
+      }
+    });
+    return Array.from(categoryOptionMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name, 'ar')
+    );
+  }, [spareParts]);
+
+  const activeCategoryFilterCount = useMemo(() => 
+    Array.isArray(filters.categoryId)
+      ? filters.categoryId.length
+      : typeof filters.categoryId === 'number'
+      ? 1
+      : 0,
+    [filters.categoryId]
+  );
+
+  const isAllSelected = useMemo(() => 
+    spareParts.length > 0 && selectedRows.size === spareParts.length,
+    [spareParts.length, selectedRows.size]
+  );
+
+  const isIndeterminate = useMemo(() => 
+    selectedRows.size > 0 && selectedRows.size < spareParts.length,
+    [selectedRows.size, spareParts.length]
+  );
+
+  // Filter categories based on search term
+  const filteredCategories = useMemo(() => 
+    categoryOptions.filter((cat) =>
+      cat.name.toLowerCase().includes(categorySearchTerm.toLowerCase()) ||
+      (cat.code ? cat.code.toLowerCase().includes(categorySearchTerm.toLowerCase()) : false)
+    ),
+    [categoryOptions, categorySearchTerm]
+  );
+
+  // Filter stock status options based on search term
+  const filteredStockStatusOptions = useMemo(() =>
+    stockStatusOptions.filter((option: { value: string; label: string }) =>
+      option.label.toLowerCase().includes(stockStatusSearchTerm.toLowerCase()) ||
+      option.value.toLowerCase().includes(stockStatusSearchTerm.toLowerCase())
+    ),
+    [stockStatusSearchTerm]
+  );
+
   // Check if any filters are active
-  const hasActiveFilters = !!(
+  const hasActiveFilters = useMemo(() => !!(
     searchTerm || 
     (filters.categoryId &&
       (Array.isArray(filters.categoryId) ? filters.categoryId.length > 0 : typeof filters.categoryId === 'number')) ||
     (filters.stockStatus && (Array.isArray(filters.stockStatus) ? filters.stockStatus.length > 0 : true))
-  );
+  ), [searchTerm, filters.categoryId, filters.stockStatus]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -547,62 +604,6 @@ export function SparePartsList({ onEdit, onCreate }: SparePartsListProps) {
       </div>
     );
   }
-
-  const spareParts = useMemo(() => data?.spareParts || [], [data?.spareParts]);
-  
-  // Memoize category options to prevent recalculation on every render
-  const categoryOptions = useMemo(() => {
-    const categoryOptionMap = new Map<number, SparePartCategoryOption>();
-    spareParts.forEach((part) => {
-      if (part.categoryId && part.category?.name) {
-        categoryOptionMap.set(part.categoryId, {
-          id: part.categoryId,
-          name: part.category.name,
-          code: part.category.code,
-        });
-      }
-    });
-    return Array.from(categoryOptionMap.values()).sort((a, b) =>
-      a.name.localeCompare(b.name, 'ar')
-    );
-  }, [spareParts]);
-
-  const activeCategoryFilterCount = useMemo(() => 
-    Array.isArray(filters.categoryId)
-      ? filters.categoryId.length
-      : typeof filters.categoryId === 'number'
-      ? 1
-      : 0,
-    [filters.categoryId]
-  );
-
-  const isAllSelected = useMemo(() => 
-    spareParts.length > 0 && selectedRows.size === spareParts.length,
-    [spareParts.length, selectedRows.size]
-  );
-
-  const isIndeterminate = useMemo(() => 
-    selectedRows.size > 0 && selectedRows.size < spareParts.length,
-    [selectedRows.size, spareParts.length]
-  );
-
-  // Filter categories based on search term
-  const filteredCategories = useMemo(() => 
-    categoryOptions.filter((cat) =>
-      cat.name.toLowerCase().includes(categorySearchTerm.toLowerCase()) ||
-      (cat.code ? cat.code.toLowerCase().includes(categorySearchTerm.toLowerCase()) : false)
-    ),
-    [categoryOptions, categorySearchTerm]
-  );
-
-  // Filter stock status options based on search term
-  const filteredStockStatusOptions = useMemo(() =>
-    stockStatusOptions.filter((option: { value: string; label: string }) =>
-      option.label.toLowerCase().includes(stockStatusSearchTerm.toLowerCase()) ||
-      option.value.toLowerCase().includes(stockStatusSearchTerm.toLowerCase())
-    ),
-    [stockStatusSearchTerm]
-  );
 
   return (
     <div className="space-y-6">
