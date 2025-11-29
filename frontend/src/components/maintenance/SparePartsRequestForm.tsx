@@ -21,14 +21,29 @@ export function SparePartsRequestForm({ maintenanceWorkId, onSave, onCancel }: S
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [hasChanges, setHasChanges] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
-  // Fetch spare parts for dropdown
-  const { data: sparePartsData } = useQuery({
-    queryKey: ['spare-parts-available'],
-    queryFn: () => sparePartsApi.getAvailableSpareParts({ page: 1, pageSize: 1000 }),
+  // Debounce search query to avoid too many API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Fetch spare parts for dropdown with server-side search
+  const { data: sparePartsData, isLoading: isLoadingSpareParts } = useQuery({
+    queryKey: ['spare-parts-available', debouncedSearchQuery],
+    queryFn: () => sparePartsApi.getAvailableSpareParts({ 
+      page: 1, 
+      pageSize: 1000,
+      search: debouncedSearchQuery || undefined
+    }),
+    enabled: isDropdownOpen, // Only fetch when dropdown is open
   });
 
   // Fetch selected spare part details for stock display
@@ -58,15 +73,8 @@ export function SparePartsRequestForm({ maintenanceWorkId, onSave, onCancel }: S
     };
   }, []);
 
-  // Filter spare parts based on search query
-  const filteredSpareParts = sparePartsData?.spareParts.filter((part) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      part.partNumber.toLowerCase().includes(query) ||
-      part.partName.toLowerCase().includes(query)
-    );
-  }) || [];
+  // Use spare parts from API (already filtered server-side)
+  const filteredSpareParts = sparePartsData?.spareParts || [];
 
   // Get selected spare part for display
   const selectedSparePartDisplay = sparePartsData?.spareParts.find(
@@ -197,7 +205,11 @@ export function SparePartsRequestForm({ maintenanceWorkId, onSave, onCancel }: S
 
                 {/* Options List */}
                 <div className="overflow-y-auto max-h-[calc(25vh-55px)] sm:max-h-36">
-                  {filteredSpareParts.length === 0 ? (
+                  {isLoadingSpareParts ? (
+                    <div className="px-2 sm:px-3 py-3 sm:py-4 text-xs sm:text-sm text-gray-500 text-center">
+                      جاري البحث...
+                    </div>
+                  ) : filteredSpareParts.length === 0 ? (
                     <div className="px-2 sm:px-3 py-3 sm:py-4 text-xs sm:text-sm text-gray-500 text-center">
                       لا توجد قطع غيار مطابقة
                     </div>
@@ -209,6 +221,7 @@ export function SparePartsRequestForm({ maintenanceWorkId, onSave, onCancel }: S
                           handleChange('sparePartId', part.id);
                           setIsDropdownOpen(false);
                           setSearchQuery('');
+                          setDebouncedSearchQuery('');
                         }}
                         className={`px-2 sm:px-3 py-2 sm:py-2.5 cursor-pointer hover:bg-blue-50 transition-colors ${
                           formData.sparePartId === part.id ? 'bg-blue-100' : ''
