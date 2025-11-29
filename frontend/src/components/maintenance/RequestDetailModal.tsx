@@ -13,7 +13,6 @@ import {
 import { WorkProgressForm } from './WorkProgressForm';
 import { MaintenanceWorkProgress } from './MaintenanceWorkProgress';
 import { maintenanceWorkApi } from '../../lib/api/maintenance-work';
-import { SparePartsRequestForm } from './SparePartsRequestForm';
 import { SparePartsRequestsList } from './SparePartsRequestsList';
 import { RequestApproval } from './RequestApproval';
 import FileUploadSection from '../attachments/FileUploadSection';
@@ -31,7 +30,6 @@ interface RequestDetailModalProps {
 export function RequestDetailModal({ request, isOpen, onClose, forceShowWorkProgress = false }: RequestDetailModalProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [showRequestForm, setShowRequestForm] = useState(false);
   const [selectedRequestForApproval, setSelectedRequestForApproval] = useState<SparePartsRequest | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -420,43 +418,17 @@ export function RequestDetailModal({ request, isOpen, onClose, forceShowWorkProg
           {/* Spare Parts Requests Section */}
           {maintenanceWork && maintenanceWork.id && (
             <div className="bg-white rounded-lg p-6 border border-gray-200 shadow-sm mb-8 min-h-[400px] overflow-visible relative">
-              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-2">
-                <h3 className="text-sm font-semibold text-gray-900">طلبات قطع الغيار</h3>
-                {isTechnician && request.status === RequestStatus.IN_PROGRESS && !showRequestForm && (
-                  <button
-                    onClick={() => setShowRequestForm(true)}
-                    className="bg-blue-600 text-white border-none rounded px-2 py-1 text-xs font-medium cursor-pointer hover:bg-blue-700 touch-manipulation w-full sm:w-auto inline-flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    طلب قطع غيار
-                  </button>
-                )}
-              </div>
-
-              {showRequestForm && isTechnician ? (
-                <div className="relative overflow-visible">
-                  <SparePartsRequestForm
-                    maintenanceWorkId={maintenanceWork.id}
-                    onSave={() => {
-                      setShowRequestForm(false);
-                    }}
-                    onCancel={() => setShowRequestForm(false)}
-                  />
-                </div>
-              ) : (
-                <div>
-                  <SparePartsRequestsList 
-                    maintenanceWorkId={maintenanceWork.id} 
-                    onRequestClick={(spareRequest) => {
-                      if (spareRequest.status === 'PENDING' && isManager) {
-                        setSelectedRequestForApproval(spareRequest);
-                      }
-                    }}
-                  />
-                </div>
-              )}
+              <SparePartsRequestsList 
+                maintenanceWorkId={maintenanceWork.id} 
+                onRequestClick={(spareRequest) => {
+                  if (spareRequest.status === 'PENDING' && isManager) {
+                    setSelectedRequestForApproval(spareRequest);
+                  }
+                }}
+                onCreateNew={() => {
+                  queryClient.invalidateQueries({ queryKey: ['maintenance-work'] });
+                }}
+              />
               
               {/* Request Approval Interface */}
               {selectedRequestForApproval && isManager && (

@@ -3,12 +3,15 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { sparePartsRequestsApi } from '../../lib/api/spare-parts-requests';
-import { SparePartsRequest, SparePartsRequestStatus, SparePartsRequestFilters } from '../../lib/types';
+import { SparePartsRequest, SparePartsRequestStatus, SparePartsRequestFilters, UserRole } from '../../lib/types';
 import { sparePartsRequestStatusLabels, formatDateArabic, RETURN_REQUESTED_BADGE, RETURNED_BADGE } from '../../lib/locale';
+import { SparePartsRequestForm } from './SparePartsRequestForm';
+import { useAuth } from '../../lib/auth';
 
 interface SparePartsRequestsListProps {
   maintenanceWorkId?: number;
   onRequestClick?: (request: SparePartsRequest) => void;
+  onCreateNew?: () => void;
 }
 
 function getStatusColor(status: SparePartsRequestStatus): string {
@@ -26,13 +29,20 @@ function getStatusColor(status: SparePartsRequestStatus): string {
   }
 }
 
-export function SparePartsRequestsList({ maintenanceWorkId, onRequestClick }: SparePartsRequestsListProps) {
+export function SparePartsRequestsList({ maintenanceWorkId, onRequestClick, onCreateNew }: SparePartsRequestsListProps) {
+  const { user } = useAuth();
   const [filters, setFilters] = useState<SparePartsRequestFilters>({
     page: 1,
     pageSize: 25,
     maintenanceWorkId,
   });
+  const [showRequestForm, setShowRequestForm] = useState(false);
   const queryClient = useQueryClient();
+  
+  // Check if user can create spare parts requests (technicians and managers)
+  const canCreateRequest = user?.role === UserRole.MAINTENANCE_TECH || 
+                          user?.role === UserRole.MAINTENANCE_MANAGER || 
+                          user?.role === UserRole.ADMIN;
 
   // Fetch requests with filters
   const { data, isLoading, error } = useQuery({
@@ -83,8 +93,47 @@ export function SparePartsRequestsList({ maintenanceWorkId, onRequestClick }: Sp
 
   const requests = data?.requests || [];
 
+  const handleSave = () => {
+    setShowRequestForm(false);
+    queryClient.invalidateQueries({ queryKey: ['spare-parts-requests'] });
+    onCreateNew?.();
+  };
+
+  const handleCancel = () => {
+    setShowRequestForm(false);
+  };
+
   return (
     <div className="w-full max-w-full overflow-x-hidden">
+      {/* Header with Add Button */}
+      {maintenanceWorkId && (
+        <div className="flex justify-between items-center mb-4">
+          <h4 className="text-sm font-semibold text-gray-900">طلبات قطع الغيار</h4>
+          {canCreateRequest && !showRequestForm && (
+            <button
+              onClick={() => setShowRequestForm(true)}
+              className="bg-blue-600 text-white border-none rounded px-3 py-1.5 text-xs font-medium cursor-pointer hover:bg-blue-700 inline-flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              إضافة قطعة غيار
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Request Form */}
+      {showRequestForm && maintenanceWorkId && (
+        <div className="mb-4">
+          <SparePartsRequestForm
+            maintenanceWorkId={maintenanceWorkId}
+            onSave={handleSave}
+            onCancel={handleCancel}
+          />
+        </div>
+      )}
+
       {/* Requests List - Enhanced Card Layout */}
       {requests.length === 0 ? (
         <div className="p-6 text-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
