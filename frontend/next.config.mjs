@@ -2,9 +2,9 @@
 const nextConfig = {
   /* config options here */
   allowedDevOrigins: [
-    'janssencmma.cloud',
-    'https://janssencmma.cloud',
-    'http://janssencmma.cloud',
+    'janssencmma.com',
+    'https://janssencmma.com',
+    'http://janssencmma.com',
   ],
 };
 

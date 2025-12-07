@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: List[str] = [
         "http://localhost:3001",
         "http://127.0.0.1:3001",
-        "https://janssencmma.cloud",
+        "https://janssencmma.com",
         # Allow external access - you can specify specific IPs or use "*" for all origins
         "*",  # WARNING: Only use "*" in development. In production, specify exact origins.
     ]
