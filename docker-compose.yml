@@ -40,11 +40,10 @@ services:
       mysql:
         condition: service_healthy
     volumes:
-      - ./backend:/app
       - backend_uploads:/app/uploads
     networks:
       - maintenance_network
-    command: sh -c "sleep 5 && (alembic upgrade head || echo 'Migrations failed, continuing...') && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    command: sh -c "sleep 5 && (alembic upgrade head || echo 'Migrations failed, continuing...') && uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
   frontend:
     build:
@@ -59,13 +58,8 @@ services:
       - "3001:3000"
     depends_on:
       - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
     networks:
       - maintenance_network
-    command: npm run dev -- --hostname 0.0.0.0
 
 volumes:
   mysql_data:
